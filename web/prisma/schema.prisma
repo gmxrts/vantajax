@@ -1,21 +1,97 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-}
+// Prisma schema for VantaJax
+// ===================================
+
 generator client {
   provider = "prisma-client-js"
 }
 
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// ===================================
+/// MODELS
+/// ===================================
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
+  name      String?
   role      Role     @default(USER)
+  image     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  reviews   Review[]
-  claims    Claim[]
+
+  // Relations
+  reviews    Review[]
+  claims     Claim[]
+  businesses Business[] @relation("BusinessOwner")
 }
+
+/// -----------------------------------
+
+model Business {
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  categories    String[]  @default([])
+  tags          String[]  @default([])
+  phone         String?
+  email         String?
+  website       String?
+  address       String?
+  city          String?
+  state         String?
+  zipCode       String?
+  lat           Float? // Will become PostGIS geometry later
+  lng           Float?
+  verifiedAt    DateTime?
+  featuredUntil DateTime?
+  imageUrl      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  ownerId String?
+  owner   User?    @relation("BusinessOwner", fields: [ownerId], references: [id])
+  reviews Review[]
+  claims  Claim[]
+}
+
+/// -----------------------------------
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int      @default(0)
+  text      String?
+  createdAt DateTime @default(now())
+  flagged   Boolean  @default(false)
+
+  // Relations
+  userId     String
+  businessId String
+  user       User     @relation(fields: [userId], references: [id])
+  business   Business @relation(fields: [businessId], references: [id])
+}
+
+/// -----------------------------------
+
+model Claim {
+  id        String      @id @default(cuid())
+  status    ClaimStatus @default(PENDING)
+  notes     String?
+  createdAt DateTime    @default(now())
+
+  // Relations
+  businessId     String
+  claimantUserId String
+  business       Business @relation(fields: [businessId], references: [id])
+  claimant       User     @relation(fields: [claimantUserId], references: [id])
+}
+
+/// -----------------------------------
 
 enum Role {
   USER
@@ -24,53 +100,8 @@ enum Role {
   ADMIN
 }
 
-model Business {
-  id           String   @id @default(cuid())
-  name         String
-  description  String?
-  categories   String[] @default([])
-  tags         String[] @default([])
-  website      String?
-  phone        String?
-  email        String?
-  address      String?
-  lat          Float?
-  lng          Float?
-  verifiedAt   DateTime?
-  featuredUntil DateTime?
-  ownerId      String?
-  owner        User?     @relation(fields: [ownerId], references: [id])
-  reviews      Review[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-}
-
-model Review {
-  id         String   @id @default(cuid())
-  userId     String
-  businessId String
-  rating     Int
-  text       String?
-  createdAt  DateTime @default(now())
-  flagged    Boolean  @default(false)
-  user       User     @relation(fields: [userId], references: [id])
-  business   Business @relation(fields: [businessId], references: [id])
-}
-
-model Claim {
-  id              String   @id @default(cuid())
-  businessId      String
-  claimantUserId  String
-  status          ClaimStatus @default(PENDING)
-  notes           String?
-  createdAt       DateTime @default(now())
-  business        Business @relation(fields: [businessId], references: [id])
-  claimant        User     @relation(fields: [claimantUserId], references: [id])
-}
-
 enum ClaimStatus {
   PENDING
   APPROVED
   REJECTED
 }
-
